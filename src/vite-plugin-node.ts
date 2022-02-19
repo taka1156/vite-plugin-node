@@ -1,5 +1,5 @@
-import { Plugin } from 'vite';
-import { PLUGIN_NAME, VitePluginNodeConfig } from '.';
+import { Plugin, UserConfig, ConfigEnv } from 'vite';
+import { PLUGIN_NAME, ViteConfig, VitePluginNodeConfig } from '.';
 import { RollupPluginSwc } from './rollup-plugin-swc';
 import { createMiddleware } from './server';
 
@@ -11,20 +11,58 @@ export function VitePluginNode(cfg: VitePluginNodeConfig): Plugin[] {
     exportName: cfg.exportName ?? 'viteNodeApp'
   };
 
-  const plugins: Plugin[] = [
-    {
-      name: PLUGIN_NAME,
-      config: () => ({
+  const resolvePath = (root: string = '', config: VitePluginNodeConfig): VitePluginNodeConfig => {
+    if (root !== '') {
+      config.appPath = `${root}/${config.appPath}`;
+    }
+    return config;
+  };
+
+  const resolveConfig = (viteConfig: UserConfig, env: ConfigEnv ): ViteConfig => {
+
+    const { root, build } = viteConfig;
+    const { appPath } = config;
+
+    if (env.mode === 'serve') {
+      // serve
+      return {
+        // https://vitejs.dev/config/#root
+        root: root || process.cwd(),
         server: {
           hmr: false
         },
         esbuild: config.tsCompiler === 'esbuild' ? {} : false,
-        VitePluginNodeConfig: config
-      }),
+        VitePluginNodeConfig: resolvePath(root, config),
+      };
+    } else {
+      // build
+      return {
+        // https://vitejs.dev/config/#root
+        root: root || process.cwd(),
+        build: {
+          ssr: appPath || 'index.js', // production entry point
+          outDir: build?.outDir || '../dist',
+          emptyOutDir: build?.emptyOutDir|| true,
+        },
+        esbuild: config.tsCompiler === 'esbuild' ? {} : false,
+        VitePluginNodeConfig: resolvePath(root, config)
+      };
+    }
+  };
+
+  const plugins: Plugin[] = [
+    {
+      name: PLUGIN_NAME,
+      config: (viteConfig, env) => resolveConfig(viteConfig, env),
       configureServer: (server) => {
         server.middlewares.use(createMiddleware(server));
       },
       apply: 'serve'
+    },
+    {
+      name: PLUGIN_NAME,
+      config: (viteConfig, env) => resolveConfig(viteConfig, env),
+      apply: 'build'
     }
   ];
 

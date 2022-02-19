@@ -1,11 +1,12 @@
 import { defineConfig } from 'vite';
-import { VitePluginNode } from 'vite-plugin-node';
+import { VitePluginNode } from '../../dist';
 
 export default defineConfig({
+  root: 'src',
   plugins: [
     ...VitePluginNode({
       adapter: 'nest',
-      appPath: './src/main.ts',
+      appPath: 'main.ts',
       tsCompiler: 'swc',
     }),
   ],
